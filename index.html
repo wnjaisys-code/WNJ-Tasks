@@ -1,226 +1,295 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<title>WNJ Designs – Dashboard</title>
-
-<!-- Libraries -->
-<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+<meta charset="UTF-8">
+<title>WNJ Designs – Admin Dashboard</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <style>
 :root{
-  --primary:#2f6f5e;
+  --primary:#2f6f59;
+  --secondary:#2b2b2b;
   --bg:#f4f6f5;
-  --card:#ffffff;
-  --text:#1f2937;
+  --border:#dcdcdc;
 }
-body{margin:0;font-family:Arial;background:var(--bg);color:var(--text)}
-header{background:var(--primary);color:#fff;padding:12px 20px}
-main{display:flex;height:calc(100vh - 50px)}
-aside{width:260px;background:#fff;border-right:1px solid #ddd;padding:10px;overflow:auto}
-section{flex:1;padding:15px;overflow:auto}
-button{cursor:pointer}
-.client{padding:6px;border-radius:6px;margin-bottom:4px;display:flex;justify-content:space-between;align-items:center}
-.client.active{background:#e6f3ef}
-.client button{background:none;border:none}
-table{width:100%;border-collapse:collapse;background:#fff}
-th,td{border:1px solid #ddd;padding:6px;text-align:left}
-.actions button{margin-right:5px}
-.preview * .admin-only{display:none}
+body{
+  margin:0;
+  font-family:Arial,Helvetica,sans-serif;
+  background:var(--bg);
+  color:#222;
+}
+header{
+  background:var(--primary);
+  color:#fff;
+  padding:12px 20px;
+  font-size:20px;
+  font-weight:bold;
+}
+.container{
+  padding:20px;
+}
+button,select,input{
+  padding:6px 10px;
+  margin:4px;
+}
+table{
+  width:100%;
+  border-collapse:collapse;
+  background:#fff;
+  margin-top:10px;
+}
+th,td{
+  border:1px solid var(--border);
+  padding:8px;
+  text-align:left;
+}
+th{
+  background:#eee;
+}
+.badge{
+  padding:4px 8px;
+  border-radius:4px;
+  font-size:12px;
+}
+.done{background:#c8e6c9;}
+.pending{background:#ffe0b2;}
+.actions button{
+  margin-right:4px;
+}
+.hidden{display:none;}
+.dropdown{
+  position:relative;
+  display:inline-block;
+}
+.dropdown-content{
+  display:none;
+  position:absolute;
+  background:#fff;
+  min-width:160px;
+  border:1px solid var(--border);
+  z-index:1;
+}
+.dropdown-content button{
+  width:100%;
+  border:none;
+  background:#fff;
+  text-align:left;
+}
+.dropdown:hover .dropdown-content{
+  display:block;
+}
+.preview-note{
+  background:#fff3cd;
+  padding:10px;
+  margin-bottom:10px;
+  border:1px solid #ffeeba;
+}
 </style>
 </head>
 
 <body>
 
-<header>
-  <b>WNJ Designs – Admin Dashboard</b>
-  <button onclick="togglePreview()" style="float:right">Preview</button>
-</header>
+<header>WNJ Designs – Admin Dashboard</header>
 
-<main id="app">
-  <aside class="admin-only">
-    <button onclick="addClient()">➕ Add Client</button>
-    <div id="clients"></div>
-  </aside>
+<div class="container">
 
-  <section>
-    <h3 id="clientTitle">Select Client</h3>
+<div id="previewNote" class="preview-note hidden">
+Client Preview Mode – Editing Disabled
+</div>
 
-    <div class="admin-only">
-      <input id="taskInput" placeholder="New task..." />
-      <button onclick="addTask()">Add</button>
+<div>
+<button onclick="addClient()">➕ Add Client</button>
 
-      <input type="file" id="importFile" onchange="importTasks(event)" />
-      <button onclick="exportXLSX()">Export XLSX</button>
-      <button onclick="exportTXT()">Export TXT</button>
-      <button onclick="exportPDF()">Export PDF</button>
-      <button onclick="exportPlain()">Plain Text</button>
-    </div>
+<div class="dropdown">
+<button>📥 Import</button>
+<div class="dropdown-content">
+<button onclick="importTasks()">Import Tasks (XLSX / TXT / PDF / Plain)</button>
+</div>
+</div>
 
-    <table id="taskTable">
-      <thead>
-        <tr>
-          <th>SR#</th>
-          <th>Task</th>
-          <th>Status</th>
-          <th class="admin-only">Move</th>
-          <th class="admin-only">Actions</th>
-        </tr>
-      </thead>
-      <tbody></tbody>
-    </table>
-  </section>
-</main>
+<div class="dropdown">
+<button>📤 Export</button>
+<div class="dropdown-content">
+<button onclick="exportData('xlsx')">Export XLSX</button>
+<button onclick="exportData('txt')">Export TXT</button>
+<button onclick="exportData('plain')">Export Plain</button>
+<button onclick="exportData('pdf')">Export PDF</button>
+<button onclick="exportData('word')">Export Word</button>
+</div>
+</div>
+
+<button onclick="window.print()">🖨 Print</button>
+<button onclick="togglePreview()">👁 Client Preview</button>
+</div>
+
+<div id="clients"></div>
+
+</div>
 
 <script>
-let data = JSON.parse(localStorage.getItem("wnj")) || {clients:{}};
-let current=null;
-let preview=false;
+let previewMode=false;
 
-function save(){localStorage.setItem("wnj",JSON.stringify(data));}
+let data={
+  clients:[]
+};
 
-function renderClients(){
-  const box=document.getElementById("clients");
-  box.innerHTML="";
-  Object.keys(data.clients).forEach(c=>{
-    const d=document.createElement("div");
-    d.className="client"+(c===current?" active":"");
-    d.onclick=()=>{current=c;render();}
-    d.innerHTML=`
-      <span>${c}</span>
-      <span>
-        <button onclick="editClient(event,'${c}')">✏️</button>
-        <button onclick="deleteClient(event,'${c}')">❌</button>
-      </span>`;
-    box.appendChild(d);
+function save(){
+  localStorage.setItem("wnj_dashboard",JSON.stringify(data));
+}
+function load(){
+  let d=localStorage.getItem("wnj_dashboard");
+  if(d) data=JSON.parse(d);
+}
+load();
+
+function render(){
+  let html="";
+  data.clients.forEach((c,ci)=>{
+    html+=`
+    <h3>
+      <span contenteditable="${!previewMode}" onblur="editClient(${ci},this.innerText)">
+      ${c.name}
+      </span>
+      ${previewMode?"":`
+      <button onclick="deleteClient(${ci})">🗑</button>
+      `}
+    </h3>
+
+    <table>
+    <tr>
+      <th>Sr#</th>
+      <th>Task</th>
+      <th>Status</th>
+      ${previewMode?"":"<th>Move</th><th>Action</th>"}
+    </tr>
+    `;
+
+    c.tasks.forEach((t,ti)=>{
+      html+=`
+      <tr>
+        <td>${ti+1}</td>
+        <td contenteditable="${!previewMode}" onblur="editTask(${ci},${ti},this.innerText)">${t.title}</td>
+        <td>
+          <span class="badge ${t.status}">
+          ${t.status}
+          </span>
+        </td>
+        ${previewMode?"":`
+        <td>
+          <button onclick="moveTask(${ci},${ti},-1)">⬆</button>
+          <button onclick="moveTask(${ci},${ti},1)">⬇</button>
+        </td>
+        <td class="actions">
+          <button onclick="toggleStatus(${ci},${ti})">✔</button>
+          <button onclick="deleteTask(${ci},${ti})">🗑</button>
+        </td>
+        `}
+      </tr>
+      `;
+    });
+
+    html+=`</table>`;
+
+    if(!previewMode){
+      html+=`
+      <button onclick="addTask(${ci})">➕ Add Task</button>
+      `;
+    }
   });
+  document.getElementById("clients").innerHTML=html;
+  save();
 }
 
 function addClient(){
-  const n=prompt("Client name?");
-  if(!n||data.clients[n])return;
-  data.clients[n]=[];
-  current=n; save(); render();
+  let n=prompt("Client Name");
+  if(!n) return;
+  data.clients.push({name:n,tasks:[]});
+  render();
 }
 
-function editClient(e,name){
-  e.stopPropagation();
-  const n=prompt("Edit client name",name);
-  if(!n||n===name||data.clients[n])return;
-  data.clients[n]=data.clients[name];
-  delete data.clients[name];
-  if(current===name)current=n;
-  save(); render();
+function editClient(i,val){
+  data.clients[i].name=val.trim();
+  render();
 }
 
-function deleteClient(e,name){
-  e.stopPropagation();
-  const confirmName=prompt(`Type "${name}" to delete`);
-  if(confirmName!==name)return;
-  delete data.clients[name];
-  current=null;
-  save(); render();
+function deleteClient(i){
+  let name=data.clients[i].name;
+  let confirmName=prompt(`Type "${name}" to confirm delete`);
+  if(confirmName===name){
+    data.clients.splice(i,1);
+    render();
+  }
 }
 
-function renderTasks(){
-  const tb=document.querySelector("#taskTable tbody");
-  tb.innerHTML="";
-  if(!current)return;
-  data.clients[current].forEach((t,i)=>{
-    const tr=document.createElement("tr");
-    tr.innerHTML=`
-      <td>${i+1}</td>
-      <td>${t.text}</td>
-      <td>${t.status}</td>
-      <td class="admin-only">
-        <button onclick="moveTask(${i},-1)">↑</button>
-        <button onclick="moveTask(${i},1)">↓</button>
-      </td>
-      <td class="admin-only actions">
-        <button onclick="editTask(${i})">✏️</button>
-        <button onclick="delTask(${i})">❌</button>
-      </td>`;
-    tb.appendChild(tr);
-  });
+function addTask(ci){
+  let t=prompt("Task title");
+  if(!t) return;
+  data.clients[ci].tasks.push({title:t,status:"pending"});
+  render();
 }
 
-function addTask(){
-  if(!current)return;
-  const v=document.getElementById("taskInput").value;
-  if(!v)return;
-  data.clients[current].push({text:v,status:"Pending"});
-  document.getElementById("taskInput").value="";
-  save(); renderTasks();
+function editTask(ci,ti,val){
+  data.clients[ci].tasks[ti].title=val.trim();
+  render();
 }
 
-function editTask(i){
-  const n=prompt("Edit task",data.clients[current][i].text);
-  if(!n)return;
-  data.clients[current][i].text=n;
-  save(); renderTasks();
+function deleteTask(ci,ti){
+  data.clients[ci].tasks.splice(ti,1);
+  render();
 }
 
-function delTask(i){
-  data.clients[current].splice(i,1);
-  save(); renderTasks();
+function moveTask(ci,ti,dir){
+  let arr=data.clients[ci].tasks;
+  let ni=ti+dir;
+  if(ni<0||ni>=arr.length) return;
+  [arr[ti],arr[ni]]=[arr[ni],arr[ti]];
+  render();
 }
 
-function moveTask(i,d){
-  const arr=data.clients[current];
-  const ni=i+d;
-  if(ni<0||ni>=arr.length)return;
-  [arr[i],arr[ni]]=[arr[ni],arr[i]];
-  save(); renderTasks();
-}
-
-/* IMPORT */
-function importTasks(e){
-  const f=e.target.files[0];
-  if(!f||!current)return;
-  const r=new FileReader();
-  r.onload=()=>{
-    r.result.split(/\r?\n/).forEach(l=>{
-      if(l.trim()) data.clients[current].push({text:l.trim(),status:"Pending"});
-    });
-    save(); renderTasks();
-  };
-  r.readAsText(f);
-}
-
-/* EXPORT */
-function exportXLSX(){
-  const ws=XLSX.utils.json_to_sheet(data.clients[current]);
-  const wb=XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb,ws,"Tasks");
-  XLSX.writeFile(wb,"tasks.xlsx");
-}
-function exportTXT(){
-  download(data.clients[current].map(t=>t.text).join("\n"),"tasks.txt");
-}
-function exportPlain(){exportTXT();}
-function exportPDF(){
-  const {jsPDF}=window.jspdf;
-  const pdf=new jsPDF();
-  data.clients[current].forEach((t,i)=>pdf.text(`${i+1}. ${t.text}`,10,10+i*8));
-  pdf.save("tasks.pdf");
-}
-function download(c,n){
-  const a=document.createElement("a");
-  a.href=URL.createObjectURL(new Blob([c]));
-  a.download=n; a.click();
+function toggleStatus(ci,ti){
+  let t=data.clients[ci].tasks[ti];
+  t.status=t.status==="pending"?"done":"pending";
+  render();
 }
 
 function togglePreview(){
-  preview=!preview;
-  document.getElementById("app").classList.toggle("preview",preview);
+  previewMode=!previewMode;
+  document.getElementById("previewNote").classList.toggle("hidden",!previewMode);
+  render();
 }
 
-function render(){
-  renderClients();
-  document.getElementById("clientTitle").innerText=current||"Select Client";
-  renderTasks();
+function importTasks(){
+  let txt=prompt("Paste tasks (comma or new line separated)");
+  if(!txt) return;
+  if(data.clients.length===0){
+    alert("Add client first");
+    return;
+  }
+  let tasks=txt.split(/,|\n/);
+  tasks.forEach(t=>{
+    if(t.trim()){
+      data.clients[0].tasks.push({title:t.trim(),status:"pending"});
+    }
+  });
+  render();
 }
+
+function exportData(type){
+  let content="";
+  data.clients.forEach(c=>{
+    content+=c.name+"\n";
+    c.tasks.forEach((t,i)=>{
+      content+=`${i+1}. ${t.title} [${t.status}]\n`;
+    });
+    content+="\n";
+  });
+  let blob=new Blob([content],{type:"text/plain"});
+  let a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  a.download="wnj_tasks."+type;
+  a.click();
+}
+
 render();
 </script>
 
