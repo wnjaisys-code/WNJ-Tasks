@@ -59,7 +59,7 @@ tr.done td{color:var(--primary)}
 </aside>
 
 <main id="main">
-  <h2 id="title"></h2>
+  <h2 id="title">No client selected</h2>
 
   <div class="controls">
     <button onclick="addTask()">+ Add Task</button>
@@ -89,35 +89,12 @@ tr.done td{color:var(--primary)}
 </div>
 
 <script>
-const DEFAULT_TASKS=[
-"Letterhead (A4 – print + digital)","Business Card","Invoice Template","Email Signature",
-"Company Stamp / Seal","Quotation / Proposal Template","Contract / Agreement Template",
-"Presentation Slides","Folder / Document Cover","Company Profile (PDF)",
-"Social Media Post Templates","Social Media Cover Banners","Thank You / Compliment Card",
-"Envelope Design","Letterhead Watermark Pattern","Internal Memo Template",
-"Meeting Agenda Template","Report Template","Notepad / Writing Pad",
-"Zoom / Google Meet Background","USB / Digital Folder Branding",
-"ID Card","Lanyard","Office Signage","Packaging Design"
-];
-
 const url=new URL(location.href);
 const previewClient=url.searchParams.get("preview");
 const isPreview=!!previewClient;
 
-let data=JSON.parse(localStorage.getItem("wnj"))||{
-  clients:{
-    "Oxlam UG":{
-      tasks:DEFAULT_TASKS.map(t=>({name:t,status:"pending"}))
-    }
-  }
-};
-
-if(data.clients["Oxlam UG"] && data.clients["Oxlam UG"].tasks.length===0){
-  data.clients["Oxlam UG"].tasks=DEFAULT_TASKS.map(t=>({name:t,status:"pending"}));
-  localStorage.setItem("wnj",JSON.stringify(data));
-}
-
-let current=isPreview?previewClient:"Oxlam UG";
+let data=JSON.parse(localStorage.getItem("wnj"))||{clients:{}};
+let current=isPreview?previewClient:null;
 
 if(isPreview){
   document.getElementById("sidebar").remove();
@@ -152,6 +129,13 @@ function renderClients(){
 }
 
 function render(){
+  if(!current){
+    title.textContent="No client selected";
+    tasks.innerHTML="";
+    renderClients();
+    return;
+  }
+
   title.textContent=current;
   tasks.innerHTML="";
   data.clients[current].tasks.forEach((t,i)=>{
@@ -170,28 +154,47 @@ function render(){
   renderClients();
 }
 
+function addClient(){
+  const n=prompt("Client name");
+  if(!n||data.clients[n]) return;
+  data.clients[n]={tasks:[]};
+  current=n;
+  save();render();
+}
+
+function deleteClient(name){
+  const auth=prompt(`Type client name "${name}" to confirm delete`);
+  if(auth!==name) return alert("Authorization failed");
+  delete data.clients[name];
+  current=null;
+  save();render();
+}
+
 function addTask(){
+  if(!current) return alert("Select a client first");
   const t=prompt("Task name");
   if(!t) return;
   data.clients[current].tasks.push({name:t,status:"pending"});
   save();render();
 }
+
 function importTasks(){
+  if(!current) return alert("Select a client first");
   const input=document.createElement("input");
   input.type="file";
   input.accept=".csv,.txt";
   input.onchange=()=>{
-    const file=input.files[0];
     const reader=new FileReader();
     reader.onload=e=>{
       e.target.result.split(/\r?\n/).map(l=>l.trim()).filter(Boolean)
       .forEach(t=>data.clients[current].tasks.push({name:t,status:"pending"}));
       save();render();
     };
-    reader.readAsText(file);
+    reader.readAsText(input.files[0]);
   };
   input.click();
 }
+
 function editTask(i,v){data.clients[current].tasks[i].name=v;save();}
 function toggle(i){
   const t=data.clients[current].tasks[i];
@@ -216,27 +219,18 @@ function moveDown(i){
   [a[i+1],a[i]]=[a[i],a[i+1]];
   save();render();
 }
-function addClient(){
-  const n=prompt("Client name");
-  if(!n||data.clients[n]) return;
-  data.clients[n]={tasks:[]};
-  current=n;
-  save();render();
-}
-function deleteClient(name){
-  const auth=prompt(`Type client name "${name}" to confirm delete`);
-  if(auth!==name) return alert("Authorization failed");
-  delete data.clients[name];
-  current=Object.keys(data.clients)[0]||"";
-  save();render();
-}
+
 function save(){localStorage.setItem("wnj",JSON.stringify(data));}
+
 function share(){
+  if(!current) return;
   const link=location.origin+location.pathname+"?preview="+encodeURIComponent(current);
   navigator.clipboard.writeText(link);
   alert("Preview link copied");
 }
+
 function exportExcel(){
+  if(!current) return;
   let csv="SR,Task,Status\n";
   data.clients[current].tasks.forEach((t,i)=>csv+=`${i+1},"${t.name}","${t.status}"\n`);
   const a=document.createElement("a");
