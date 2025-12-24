@@ -3,10 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <title>WNJ Designs – Admin Dashboard</title>
+
 <style>
 :root{
   --primary:#2f6f5f;
-  --secondary:#2e2e2e;
   --bg:#f4f6f5;
   --border:#dcdcdc;
 }
@@ -18,10 +18,10 @@ body{
 header{
   background:var(--primary);
   color:#fff;
-  padding:12px 20px;
+  padding:14px 20px;
 }
 .container{padding:20px;}
-.flex{display:flex;gap:10px;align-items:center;}
+.flex{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
 button,select,input{
   padding:6px 10px;
   border:1px solid var(--border);
@@ -44,10 +44,10 @@ th,td{
   padding:8px;
 }
 th{background:#eee;}
-.actions button{margin-right:4px;}
 .hidden{display:none;}
 </style>
 </head>
+
 <body>
 
 <header>
@@ -57,59 +57,58 @@ th{background:#eee;}
 <div class="container">
 
 <!-- ADMIN CONTROLS -->
-<div id="adminControls">
-  <div class="flex">
-    <input id="newClient" placeholder="New client name">
-    <button onclick="addClient()">Add Client</button>
-    <button class="gray" onclick="copyPreview()">Client Preview</button>
+<div id="adminControls" class="flex">
+  <input id="newClient" placeholder="New client name">
+  <button onclick="addClient()">Add Client</button>
+  <button class="gray" onclick="copyPreview()">Client Preview</button>
 
-    <!-- IMPORT DROPDOWN -->
-    <select onchange="handleImport(this.value)">
-      <option value="">Import Tasks</option>
-      <option value="txt">TXT / Plain Text</option>
-      <option value="xlsx">XLSX</option>
-      <option value="pdf">PDF</option>
-    </select>
+  <select onchange="handleImport(this.value)">
+    <option value="">Import Tasks</option>
+    <option value="txt">TXT / Plain</option>
+    <option value="xlsx">XLSX</option>
+    <option value="pdf">PDF</option>
+  </select>
 
-    <!-- EXPORT DROPDOWN -->
-    <select onchange="exportTasks(this.value)">
-      <option value="">Export</option>
-      <option value="txt">TXT</option>
-      <option value="plain">Plain Text</option>
-      <option value="xlsx">XLSX</option>
-      <option value="word">Word</option>
-      <option value="pdf">PDF</option>
-    </select>
+  <select onchange="exportTasks(this.value)">
+    <option value="">Export</option>
+    <option value="txt">TXT</option>
+    <option value="plain">Plain</option>
+    <option value="xlsx">XLSX</option>
+    <option value="word">Word</option>
+    <option value="pdf">PDF</option>
+  </select>
 
-    <button onclick="window.print()">Print</button>
-  </div>
+  <button onclick="window.print()">Print</button>
 </div>
 
 <hr>
 
-<!-- CLIENT LIST -->
-<h3>Clients</h3>
-<div id="clients"></div>
+<!-- CLIENTS -->
+<div id="clientsSection">
+  <h3>Clients</h3>
+  <div id="clients"></div>
+</div>
 
 <hr>
 
 <!-- TASKS -->
 <h3 id="taskTitle"></h3>
+
 <div id="taskControls" class="flex">
   <input id="newTask" placeholder="New task">
   <button onclick="addTask()">Add Task</button>
 </div>
 
-<table id="taskTable">
+<table>
 <thead>
 <tr>
-<th>Sr #</th>
-<th>Task</th>
-<th>Status</th>
-<th class="actions">Actions</th>
+  <th>Sr #</th>
+  <th>Task</th>
+  <th>Status</th>
+  <th id="actionHeader">Actions</th>
 </tr>
 </thead>
-<tbody></tbody>
+<tbody id="taskBody"></tbody>
 </table>
 
 </div>
@@ -123,50 +122,54 @@ let currentClient = null;
 const params = new URLSearchParams(window.location.search);
 const previewMode = params.get("preview")==="1";
 
-/* ================= INIT ================= */
+/* ================= PREVIEW HIDING ================= */
 if(previewMode){
   document.getElementById("adminControls").classList.add("hidden");
   document.getElementById("taskControls").classList.add("hidden");
+  document.getElementById("clientsSection").classList.add("hidden");
+  document.getElementById("actionHeader").classList.add("hidden");
 }
 
-renderClients();
-
-/* ================= CLIENTS ================= */
+/* ================= SAVE ================= */
 function save(){
   localStorage.setItem("wnjData",JSON.stringify(data));
 }
 
+/* ================= CLIENTS ================= */
 function addClient(){
-  const name = newClient.value.trim();
-  if(!name) return;
-  if(data.clients[name]) return alert("Client exists");
-  data.clients[name]={tasks:[]};
+  const n=newClient.value.trim();
+  if(!n) return;
+  if(data.clients[n]) return alert("Client exists");
+  data.clients[n]={tasks:[]};
   newClient.value="";
   save();renderClients();
 }
 
 function renderClients(){
-  const cDiv=document.getElementById("clients");
-  cDiv.innerHTML="";
-  Object.keys(data.clients).forEach(c=>{
-    const d=document.createElement("div");
-    d.className="flex";
+  const c=document.getElementById("clients");
+  c.innerHTML="";
+  Object.keys(data.clients).forEach(name=>{
+    const row=document.createElement("div");
+    row.className="flex";
+
     const b=document.createElement("button");
-    b.textContent=c;
-    b.onclick=()=>selectClient(c);
-    d.appendChild(b);
+    b.textContent=name;
+    b.onclick=()=>selectClient(name);
+    row.appendChild(b);
 
     if(!previewMode){
       const e=document.createElement("button");
       e.textContent="✏️";
-      e.onclick=()=>editClient(c);
-      const del=document.createElement("button");
-      del.textContent="🗑";
-      del.className="red";
-      del.onclick=()=>deleteClient(c);
-      d.append(e,del);
+      e.onclick=()=>editClient(name);
+
+      const d=document.createElement("button");
+      d.textContent="🗑";
+      d.className="red";
+      d.onclick=()=>deleteClient(name);
+
+      row.append(e,d);
     }
-    cDiv.appendChild(d);
+    c.appendChild(row);
   });
 }
 
@@ -181,24 +184,25 @@ function editClient(oldName){
 }
 
 function deleteClient(name){
-  const conf=prompt(`Type "${name}" to delete`);
-  if(conf!==name) return;
+  const c=prompt(`Type "${name}" to delete`);
+  if(c!==name) return;
   delete data.clients[name];
   currentClient=null;
   save();renderClients();renderTasks();
 }
 
-function selectClient(c){
-  currentClient=c;
+function selectClient(name){
+  currentClient=name;
   renderTasks();
 }
 
 /* ================= TASKS ================= */
 function renderTasks(){
+  const body=document.getElementById("taskBody");
   const title=document.getElementById("taskTitle");
-  const tbody=document.querySelector("#taskTable tbody");
-  tbody.innerHTML="";
+  body.innerHTML="";
   if(!currentClient){title.textContent="";return;}
+
   title.textContent="Tasks – "+currentClient;
 
   data.clients[currentClient].tasks.forEach((t,i)=>{
@@ -207,16 +211,14 @@ function renderTasks(){
       <td>${i+1}</td>
       <td>${t.title}</td>
       <td>${t.status}</td>
-      <td class="actions"></td>`;
-    if(!previewMode){
-      const a=tr.querySelector(".actions");
-      a.innerHTML=`
-      <button onclick="moveTask(${i},-1)">⬆</button>
-      <button onclick="moveTask(${i},1)">⬇</button>
-      <button onclick="editTask(${i})">✏️</button>
-      <button onclick="delTask(${i})" class="red">🗑</button>`;
-    }
-    tbody.appendChild(tr);
+      ${previewMode ? "" : `<td>
+        <button onclick="moveTask(${i},-1)">⬆</button>
+        <button onclick="moveTask(${i},1)">⬇</button>
+        <button onclick="editTask(${i})">✏️</button>
+        <button class="red" onclick="delTask(${i})">🗑</button>
+      </td>`}
+    `;
+    body.appendChild(tr);
   });
 }
 
@@ -259,23 +261,21 @@ function copyPreview(){
 /* ================= IMPORT ================= */
 function handleImport(type){
   if(!type||!currentClient) return;
-  const inp=document.createElement("input");
-  inp.type="file";
-  inp.onchange=()=>{
-    const f=inp.files[0];
+  const f=document.createElement("input");
+  f.type="file";
+  f.onchange=()=>{
     const r=new FileReader();
     r.onload=e=>{
-      const lines=e.target.result.split(/\r?\n/);
-      lines.forEach(l=>{
+      e.target.result.split(/\r?\n/).forEach(l=>{
         if(l.trim()){
           data.clients[currentClient].tasks.push({title:l.trim(),status:"Pending"});
         }
       });
       save();renderTasks();
     };
-    r.readAsText(f);
+    r.readAsText(f.files[0]);
   };
-  inp.click();
+  f.click();
 }
 
 /* ================= EXPORT ================= */
@@ -283,13 +283,17 @@ function exportTasks(type){
   if(!currentClient) return;
   const t=data.clients[currentClient].tasks;
   if(!t.length) return;
-  let text=t.map((x,i)=>`${i+1}. ${x.title} - ${x.status}`).join("\n");
+  const text=t.map((x,i)=>`${i+1}. ${x.title} - ${x.status}`).join("\n");
   const blob=new Blob([text],{type:"text/plain"});
   const a=document.createElement("a");
   a.href=URL.createObjectURL(blob);
   a.download="tasks."+type;
   a.click();
 }
+
+/* ================= INIT ================= */
+renderClients();
 </script>
+
 </body>
 </html>
