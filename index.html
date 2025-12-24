@@ -121,6 +121,12 @@ let currentClient = null;
 /* ================= PREVIEW MODE ================= */
 const params = new URLSearchParams(window.location.search);
 const previewMode = params.get("preview")==="1";
+const previewClient = params.get("client");
+
+/* ================= PREVIEW CLIENT LOAD ================= */
+if(previewMode && previewClient){
+  currentClient = decodeURIComponent(previewClient);
+}
 
 /* ================= PREVIEW HIDING ================= */
 if(previewMode){
@@ -201,7 +207,10 @@ function renderTasks(){
   const body=document.getElementById("taskBody");
   const title=document.getElementById("taskTitle");
   body.innerHTML="";
-  if(!currentClient){title.textContent="";return;}
+  if(!currentClient || !data.clients[currentClient]){
+    title.textContent="";
+    return;
+  }
 
   title.textContent="Tasks – "+currentClient;
 
@@ -251,9 +260,11 @@ function moveTask(i,d){
   save();renderTasks();
 }
 
-/* ================= PREVIEW LINK ================= */
+/* ================= CLIENT‑WISE PREVIEW LINK ================= */
 function copyPreview(){
-  const link=location.origin+location.pathname+"?preview=1";
+  if(!currentClient) return alert("Select a client first");
+  const link = location.origin + location.pathname +
+    "?preview=1&client=" + encodeURIComponent(currentClient);
   navigator.clipboard.writeText(link);
   alert("Client Preview link copied:\n"+link);
 }
@@ -287,12 +298,13 @@ function exportTasks(type){
   const blob=new Blob([text],{type:"text/plain"});
   const a=document.createElement("a");
   a.href=URL.createObjectURL(blob);
-  a.download="tasks."+type;
+  a.download=currentClient+"_tasks."+type;
   a.click();
 }
 
 /* ================= INIT ================= */
 renderClients();
+if(currentClient) renderTasks();
 </script>
 
 </body>
