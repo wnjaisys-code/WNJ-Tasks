@@ -6,104 +6,40 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <style>
-/* ================= THEME ================= */
 :root{
-  --primary:#2f8f5b;      /* vintage green */
-  --secondary:#2b2b2b;    /* dark gray */
-  --accent:#e5e7eb;       /* light gray */
-  --bg:#f6f7f9;           /* soft background */
-  --danger:#d64545;
+  --primary:#2f8f5b;
+  --secondary:#1f2933;
+  --accent:#e5e7eb;
+  --bg:#f6f7f9;
 }
-
-/* ================= GLOBAL ================= */
 *{box-sizing:border-box;font-family:Arial,Helvetica,sans-serif}
-body{margin:0;background:var(--bg);color:#111}
-header{
-  background:var(--secondary);
-  color:#fff;
-  padding:14px 18px;
-  font-weight:bold;
-}
+body{margin:0;background:var(--bg)}
+header{background:var(--secondary);color:#fff;padding:14px 18px;font-weight:bold}
 
-/* ================= LAYOUT ================= */
 #app{display:flex;height:calc(100vh - 56px)}
-#sidebar{
-  width:260px;
-  background:#1f2933;
-  color:#fff;
-  padding:12px;
-}
-#sidebar h3{margin-top:0;color:#d1d5db}
+#sidebar{width:260px;background:#111;color:#fff;padding:12px}
+.client-row{display:flex;justify-content:space-between;align-items:center}
+.client{padding:8px;border-radius:6px;cursor:pointer;flex:1}
+.client.active,.client:hover{background:var(--primary)}
+.client-del{background:none;border:none;color:red;cursor:pointer}
 
-.client-row{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  margin-bottom:4px;
-}
-.client{
-  padding:8px;
-  border-radius:6px;
-  cursor:pointer;
-  flex:1;
-}
-.client.active,.client:hover{
-  background:var(--primary);
-}
-.client-del{
-  background:none;
-  border:none;
-  color:#ff6b6b;
-  cursor:pointer;
-  font-size:14px;
-}
-
-#main{
-  flex:1;
-  padding:20px;
-  overflow:auto;
-}
-
-/* ================= CONTROLS ================= */
+#main{flex:1;padding:20px;overflow:auto}
 .controls button{
   margin-right:6px;
   padding:6px 10px;
   border:none;
   border-radius:6px;
-  cursor:pointer;
   background:var(--primary);
   color:#fff;
+  cursor:pointer;
 }
-.controls button:hover{opacity:.9}
 
-/* ================= TABLE ================= */
-table{
-  width:100%;
-  border-collapse:collapse;
-  background:#fff;
-  border-radius:8px;
-  overflow:hidden;
-}
-th{
-  background:#f0f2f5;
-  text-align:left;
-}
-th,td{
-  padding:10px;
-  border-bottom:1px solid var(--accent);
-}
+table{width:100%;border-collapse:collapse;background:#fff}
+th,td{padding:10px;border-bottom:1px solid var(--accent)}
 tr.done td{color:var(--primary)}
 .status.pending{color:#f59e0b;font-weight:bold}
 .status.done{color:var(--primary);font-weight:bold}
 
-input{
-  width:100%;
-  border:1px solid var(--accent);
-  padding:6px;
-  border-radius:4px;
-}
-
-/* ================= PRINT ================= */
 @media print{
   #sidebar,.controls,button{display:none}
 }
@@ -116,19 +52,18 @@ input{
 
 <div id="app">
 
-<!-- SIDEBAR -->
 <aside id="sidebar">
   <h3>Clients</h3>
   <div id="clients"></div>
-  <button onclick="addClient()" style="width:100%;margin-top:8px;">+ Add Client</button>
+  <button onclick="addClient()" style="width:100%;margin-top:6px;">+ Add Client</button>
 </aside>
 
-<!-- MAIN -->
 <main id="main">
   <h2 id="title"></h2>
 
   <div class="controls">
     <button onclick="addTask()">+ Add Task</button>
+    <button onclick="importTasks()">Import Tasks</button>
     <button onclick="save()">Save</button>
     <button onclick="share()">Share Preview</button>
     <button onclick="exportExcel()">Export Excel</button>
@@ -154,7 +89,6 @@ input{
 </div>
 
 <script>
-/* ================= DEFAULT TASKS ================= */
 const DEFAULT_TASKS=[
 "Letterhead (A4 – print + digital)","Business Card","Invoice Template","Email Signature",
 "Company Stamp / Seal","Quotation / Proposal Template","Contract / Agreement Template",
@@ -166,7 +100,6 @@ const DEFAULT_TASKS=[
 "ID Card","Lanyard","Office Signage","Packaging Design"
 ];
 
-/* ================= STATE ================= */
 const url=new URL(location.href);
 const previewClient=url.searchParams.get("preview");
 const isPreview=!!previewClient;
@@ -179,16 +112,19 @@ let data=JSON.parse(localStorage.getItem("wnj"))||{
   }
 };
 
+if(data.clients["Oxlam UG"] && data.clients["Oxlam UG"].tasks.length===0){
+  data.clients["Oxlam UG"].tasks=DEFAULT_TASKS.map(t=>({name:t,status:"pending"}));
+  localStorage.setItem("wnj",JSON.stringify(data));
+}
+
 let current=isPreview?previewClient:"Oxlam UG";
 
-/* ================= PREVIEW LOCK ================= */
 if(isPreview){
   document.getElementById("sidebar").remove();
   document.querySelector(".controls").remove();
   document.querySelectorAll(".admin-only").forEach(e=>e.remove());
 }
 
-/* ================= CLIENT LIST ================= */
 function renderClients(){
   if(isPreview) return;
   clients.innerHTML="";
@@ -215,39 +151,46 @@ function renderClients(){
   });
 }
 
-/* ================= RENDER TASKS ================= */
 function render(){
   title.textContent=current;
   tasks.innerHTML="";
   data.clients[current].tasks.forEach((t,i)=>{
     const tr=document.createElement("tr");
     if(t.status==="done") tr.classList.add("done");
-
     tr.innerHTML=`
       <td>${i+1}</td>
       <td>${isPreview?t.name:`<input value="${t.name}" onchange="editTask(${i},this.value)">`}</td>
       <td class="status ${t.status}">${t.status}</td>
       ${isPreview?"":`
-      <td>
-        <button onclick="moveUp(${i})">↑</button>
-        <button onclick="moveDown(${i})">↓</button>
-      </td>
-      <td>
-        <button onclick="toggle(${i})">Toggle</button>
-        <button onclick="delTask(${i})">✖</button>
-      </td>`}
+      <td><button onclick="moveUp(${i})">↑</button><button onclick="moveDown(${i})">↓</button></td>
+      <td><button onclick="toggle(${i})">Toggle</button><button onclick="delTask(${i})">✖</button></td>`}
     `;
     tasks.appendChild(tr);
   });
   renderClients();
 }
 
-/* ================= TASK ACTIONS ================= */
 function addTask(){
   const t=prompt("Task name");
   if(!t) return;
   data.clients[current].tasks.push({name:t,status:"pending"});
   save();render();
+}
+function importTasks(){
+  const input=document.createElement("input");
+  input.type="file";
+  input.accept=".csv,.txt";
+  input.onchange=()=>{
+    const file=input.files[0];
+    const reader=new FileReader();
+    reader.onload=e=>{
+      e.target.result.split(/\r?\n/).map(l=>l.trim()).filter(Boolean)
+      .forEach(t=>data.clients[current].tasks.push({name:t,status:"pending"}));
+      save();render();
+    };
+    reader.readAsText(file);
+  };
+  input.click();
 }
 function editTask(i,v){data.clients[current].tasks[i].name=v;save();}
 function toggle(i){
@@ -256,9 +199,10 @@ function toggle(i){
   save();render();
 }
 function delTask(i){
-  if(!confirm("Delete task?")) return;
-  data.clients[current].tasks.splice(i,1);
-  save();render();
+  if(confirm("Delete task?")){
+    data.clients[current].tasks.splice(i,1);
+    save();render();
+  }
 }
 function moveUp(i){
   if(i===0) return;
@@ -272,8 +216,6 @@ function moveDown(i){
   [a[i+1],a[i]]=[a[i],a[i+1]];
   save();render();
 }
-
-/* ================= CLIENT ACTIONS ================= */
 function addClient(){
   const n=prompt("Client name");
   if(!n||data.clients[n]) return;
@@ -281,40 +223,28 @@ function addClient(){
   current=n;
   save();render();
 }
-
 function deleteClient(name){
   const auth=prompt(`Type client name "${name}" to confirm delete`);
-  if(auth!==name){
-    alert("Authorization failed");
-    return;
-  }
+  if(auth!==name) return alert("Authorization failed");
   delete data.clients[name];
   current=Object.keys(data.clients)[0]||"";
   save();render();
 }
-
-/* ================= SAVE / SHARE / EXPORT ================= */
 function save(){localStorage.setItem("wnj",JSON.stringify(data));}
-
 function share(){
   const link=location.origin+location.pathname+"?preview="+encodeURIComponent(current);
   navigator.clipboard.writeText(link);
   alert("Preview link copied");
 }
-
 function exportExcel(){
   let csv="SR,Task,Status\n";
-  data.clients[current].tasks.forEach((t,i)=>{
-    csv+=`${i+1},"${t.name}","${t.status}"\n`;
-  });
-  const blob=new Blob([csv],{type:"text/csv"});
+  data.clients[current].tasks.forEach((t,i)=>csv+=`${i+1},"${t.name}","${t.status}"\n`);
   const a=document.createElement("a");
-  a.href=URL.createObjectURL(blob);
-  a.download=current.replace(/\s+/g,"_")+"_Tasks.xlsx";
+  a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"}));
+  a.download=current+"_Tasks.xlsx";
   a.click();
 }
 
-/* ================= INIT ================= */
 render();
 </script>
 
